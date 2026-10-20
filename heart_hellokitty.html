@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hello Kitty & Trái tim</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background: linear-gradient(135deg, #ffd6e8, #ffb3d1, #ffe0f0, #ffc2dd);
+    background-size: 400% 400%;
+    animation: bg 12s ease infinite;
+    font-family: "Comic Sans MS", "Segoe UI", sans-serif;
+  }
+  @keyframes bg { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+
+  canvas#fx { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+  .float { position: fixed; bottom: -60px; user-select: none; pointer-events: none; z-index: 4;
+    animation: rise linear forwards; }
+  @keyframes rise {
+    0% { transform: translateY(0) translateX(0) rotate(0) scale(.6); opacity: 0; }
+    10% { opacity: 1; }
+    50% { transform: translateY(-55vh) translateX(40px) rotate(180deg) scale(1.1); }
+    100% { transform: translateY(-120vh) translateX(-40px) rotate(360deg) scale(.8); opacity: 0; }
+  }
+
+  .stage { position: relative; height: 100%; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; z-index: 2; }
+
+  .title { font-size: clamp(24px, 5vw, 48px); color: #ff2f87; font-weight: bold;
+    text-shadow: 3px 3px 0 #fff, 0 0 20px #ff9ccb; margin-bottom: 10px;
+    animation: pop 1.6s ease-in-out infinite; }
+  @keyframes pop { 0%,100%{transform:scale(1) rotate(-2deg)} 50%{transform:scale(1.1) rotate(2deg)} }
+
+  .scene { position: relative; width: 360px; height: 360px; }
+
+  /* Trái tim lớn */
+  .heart { position: absolute; left: 50%; top: 50%; width: 300px; height: 300px;
+    transform: translate(-50%, -50%) rotate(-45deg);
+    background: radial-gradient(circle at 30% 30%, #ff8fbf, #ff2f87 60%, #d4125f);
+    animation: beat 1.2s ease-in-out infinite;
+    filter: drop-shadow(0 0 25px rgba(255,47,135,.7)); }
+  .heart::before, .heart::after { content: ""; position: absolute; width: 300px; height: 300px;
+    border-radius: 50%; background: inherit; }
+  .heart::before { top: -150px; left: 0; }
+  .heart::after { left: 150px; top: 0; }
+  @keyframes beat {
+    0%,100% { transform: translate(-50%,-50%) rotate(-45deg) scale(1); }
+    15% { transform: translate(-50%,-50%) rotate(-45deg) scale(1.12); }
+    30% { transform: translate(-50%,-50%) rotate(-45deg) scale(1); }
+    45% { transform: translate(-50%,-50%) rotate(-45deg) scale(1.08); }
+  }
+
+  /* Hello Kitty */
+  .kitty { position: absolute; left: 50%; top: 52%; width: 200px; height: 170px;
+    transform: translate(-50%, -50%); animation: bounce 2s ease-in-out infinite; z-index: 3; }
+  @keyframes bounce {
+    0%,100% { transform: translate(-50%,-50%) rotate(-4deg); }
+    25% { transform: translate(-50%,-62%) rotate(0deg) scale(1.05); }
+    50% { transform: translate(-50%,-50%) rotate(4deg); }
+    75% { transform: translate(-50%,-58%) rotate(0deg) scale(1.03); }
+  }
+  .kitty { width: 260px; height: 220px; }
+  .kitty svg { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 6px 6px rgba(150,0,70,.3)); }
+  .bowg { transform-origin: 150px 42px; animation: wiggle 1.5s ease-in-out infinite; }
+  @keyframes wiggle { 0%,100%{transform:rotate(-7deg)} 50%{transform:rotate(7deg) scale(1.06)} }
+  .eyes { transform-origin: 100px 98px; animation: blink 4s infinite; }
+  @keyframes blink { 0%,92%,100%{transform:scaleY(1)} 96%{transform:scaleY(.1)} }
+  .face.swap { animation: swap .45s ease; transform-origin: 100px 100px; }
+  @keyframes swap { 0%{transform:scale(.7) rotate(-8deg)} 60%{transform:scale(1.15) rotate(5deg)} 100%{transform:scale(1) rotate(0)} }
+
+  .note { margin-top: 18px; padding: 8px 22px; color: #fff; font-size: clamp(16px, 3vw, 26px); font-weight: bold;
+    background: linear-gradient(90deg, #ff4d9d, #ff86bd); border-radius: 30px; text-align: center;
+    box-shadow: 0 4px 14px rgba(255,47,135,.5); animation: pop 2s ease-in-out infinite; }
+
+  /* Story */
+  .bars { position: fixed; top: 10px; left: 12px; right: 12px; display: flex; gap: 6px; z-index: 10; pointer-events: none; }
+  .bars span { flex: 1; height: 4px; border-radius: 4px; background: rgba(255,255,255,.45); overflow: hidden; }
+  .bars i { display: block; height: 100%; width: 0; background: #fff; }
+  @keyframes fill { from { width: 0 } to { width: 100% } }
+
+  .sc { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; }
+  .sc.active, .sc.leaving { display: flex; }
+  .sc.leaving { z-index: 2; }
+  .sc.active { z-index: 3; }
+  .bgl { position: absolute; inset: 0; z-index: -1; }
+
+  .tr-fade { animation: trFade 1s both; }
+  .tr-slide { animation: trSlide .9s cubic-bezier(.7,0,.2,1) both; }
+  .tr-circle { animation: trCircle 1s ease-in both; }
+  .tr-zoom { animation: trZoom .9s ease-out both; }
+  .tr-heart { animation: trHeart 1.2s ease-in-out both; }
+  @keyframes trFade { from { opacity: 0 } }
+  @keyframes trSlide { from { transform: translateX(100%) } }
+  @keyframes trCircle { from { clip-path: circle(0% at 50% 50%) } to { clip-path: circle(100% at 50% 50%) } }
+  @keyframes trZoom { from { transform: scale(.4) rotate(-12deg); opacity: 0 } }
+  @keyframes trHeart { from { clip-path: circle(0% at 50% 100%) } to { clip-path: circle(150% at 50% 100%) } }
+
+  .night { background: radial-gradient(ellipse at 50% 100%, #5b3a8c, #2a1650 60%, #120a2e); }
+  .night span { position: absolute; width: var(--s); height: var(--s); background: #fff; border-radius: 50%; animation: twinkle 2s infinite; }
+  @keyframes twinkle { 0%,100% { opacity: .2; transform: scale(.6) } 50% { opacity: 1; transform: scale(1.5) } }
+  .moon { position: absolute; top: 12%; right: 12%; font-size: 70px; animation: pop 4s infinite; filter: drop-shadow(0 0 20px #fff6a8); }
+  .sky { background: linear-gradient(#8fd3ff, #ffd6f0); }
+  .lav { background: linear-gradient(135deg, #d9c2ff, #ffc2e6); }
+  .peach { background: linear-gradient(135deg, #ffe3c2, #ffb8d4); }
+  .party { background: linear-gradient(135deg, #ffd6e8, #ffb3d1, #ffe0f0, #ffc2dd); background-size: 400% 400%; animation: bg 12s ease infinite; }
+
+  .cap { color: #fff; font-size: clamp(22px, 5vw, 42px); text-align: center; padding: 0 20px; text-shadow: 0 3px 12px rgba(0,0,0,.35); }
+  .cap.top { position: absolute; top: 16%; left: 0; right: 0; }
+  .sub { margin-top: 10px; color: #ffe3f1; font-size: clamp(15px, 3vw, 22px); text-align: center; padding: 0 20px; }
+  .c-in { animation: capIn 1s .5s both; }
+  .c-in.d2 { animation-delay: 1.6s; }
+  @keyframes capIn { from { opacity: 0; transform: translateY(24px) scale(.95); } to { opacity: 1; transform: none; } }
+
+  .kitty.mini { position: relative; left: auto; top: auto; transform: none; width: 200px; height: 170px; animation: hop 1.4s ease-in-out infinite; }
+  .kitty.mini.sm { width: 140px; height: 120px; }
+  @keyframes hop { 0%,100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-18px) rotate(3deg); } }
+  .s1 .kitty.mini { margin-bottom: 24px; }
+
+  .cloud { position: absolute; font-size: 70px; left: -100px; opacity: .9; animation: drift var(--d, 25s) linear infinite; }
+  @keyframes drift { to { transform: translateX(calc(100vw + 200px)); } }
+  .hill { position: absolute; left: -10%; bottom: -22vh; width: 120%; height: 42vh; border-radius: 50% 50% 0 0; background: linear-gradient(#b9f3b0, #7fd98a); }
+  .walker { position: absolute; bottom: 14vh; left: -260px; display: flex; align-items: flex-end; animation: walk 7s linear both; }
+  @keyframes walk { to { left: 100%; } }
+  .flower { font-size: 46px; margin-left: -20px; animation: pop 1s infinite; }
+
+  .row { display: flex; align-items: flex-end; gap: 14px; margin-top: 40px; }
+  .gift { position: relative; width: 160px; height: 170px; animation: shake 2.4s both; }
+  @keyframes shake { 0%,100% { transform: none } 10% { transform: rotate(-6deg) } 20% { transform: rotate(6deg) } 30% { transform: rotate(-8deg) } 40% { transform: rotate(8deg) } 50% { transform: rotate(-8deg) } 60% { transform: rotate(8deg) } 75% { transform: rotate(-4deg) } 90% { transform: rotate(3deg) } }
+  .box { position: absolute; bottom: 0; width: 160px; height: 125px; background: #ff7eb6; border-radius: 0 0 14px 14px; box-shadow: inset -12px 0 0 rgba(0,0,0,.08); }
+  .lid { position: absolute; top: 0; left: -10px; width: 180px; height: 48px; background: #ff4f9c; border-radius: 10px; z-index: 2; transform-origin: 0 100%; animation: lid 1s 2.5s cubic-bezier(.3,1.4,.5,1) both; }
+  @keyframes lid { to { transform: translate(-30px, -110px) rotate(-30deg); } }
+  .rib { position: absolute; left: 50%; top: 0; width: 34px; height: 100%; margin-left: -17px; background: #fff0a6; }
+  .lid .rib::after { content: "🎀"; position: absolute; top: -30px; left: 50%; transform: translateX(-50%); font-size: 40px; }
+  .gheart { position: absolute; left: 50%; top: 40px; margin-left: -40px; font-size: 80px; z-index: 1; transform: scale(0); animation: gh 1.4s 2.6s ease-out both; }
+  @keyframes gh { 0% { transform: translateY(0) scale(0) } 40% { transform: translateY(-120px) scale(1.3) } 100% { transform: translateY(-100px) scale(1) } }
+
+  .letter { width: min(86vw, 460px); padding: 22px 24px; background: #fffaf3; border: 3px dashed #ff8fbf; border-radius: 16px; box-shadow: 0 10px 30px rgba(180,60,110,.35); text-align: center; color: #b0235f; font-size: clamp(16px, 3.4vw, 22px); line-height: 1.5; transform-origin: top center; animation: unfold 1s ease-out both; }
+  @keyframes unfold { from { transform: scaleY(0) rotate(-3deg); opacity: 0; } to { transform: scaleY(1) rotate(-1.5deg); opacity: 1; } }
+  .ln { margin: 8px 0; opacity: 0; animation: capIn .9s both; }
+  .l1 { animation-delay: 1s; font-weight: bold; }
+  .l2 { animation-delay: 2.2s; }
+  .l3 { animation-delay: 3.4s; }
+  .l4 { animation-delay: 4.8s; font-weight: bold; }
+  .s4 .kitty.mini { margin-top: 18px; }
+</style>
+</head>
+<body>
+<canvas id="fx"></canvas>
+<div class="bars"></div>
+
+<section class="sc s1">
+  <div class="bgl night"></div>
+  <div class="moon">🌙</div>
+  <div class="kitty mini" data-exp="7"></div>
+  <h2 class="cap c-in">Ngày 20/10 sắp đến rồi...</h2>
+  <p class="sub c-in d2">Có một bạn nhỏ đang bí mật chuẩn bị điều bất ngờ ✨</p>
+</section>
+
+<section class="sc s2">
+  <div class="bgl sky"></div>
+  <div class="cloud" style="top:10%;--d:28s;animation-delay:-6s">☁️</div>
+  <div class="cloud" style="top:30%;--d:36s;animation-delay:-20s">☁️</div>
+  <div class="cloud" style="top:50%;--d:24s;animation-delay:-2s">☁️</div>
+  <div class="hill"></div>
+  <h2 class="cap top c-in">Bạn nhỏ H giấu tên đã đi tìm một món quà thật xinh... 🌷</h2>
+  <div class="walker"><div class="kitty mini" data-exp="1"></div><span class="flower">🌷</span></div>
+</section>
+
+<section class="sc s3">
+  <div class="bgl lav"></div>
+  <h2 class="cap top c-in">Ơ, có hộp quà nè... mở ra nào! 🎁</h2>
+  <div class="row">
+    <div class="kitty mini sm" data-exp="5"></div>
+    <div class="gift">
+      <div class="gheart">💖</div>
+      <div class="lid"><i class="rib"></i></div>
+      <div class="box"><i class="rib"></i></div>
+    </div>
+  </div>
+</section>
+
+<section class="sc s4">
+  <div class="bgl peach"></div>
+  <div class="letter">
+    <p class="ln l1">💌 Gửi nhì iu ngày phụ nữ Việt Nam</p>
+    <p class="ln l2">Cảm ơn vì đã luôn dịu dàng, mạnh mẽ</p>
+    <p class="ln l3">và yêu thương mọi người thật nhiều.</p>
+    <p class="ln l4">Mong mỗi ngày của nhì iu đều ngập tràn niềm vui 🌸</p>
+  </div>
+  <div class="kitty mini sm" data-exp="3"></div>
+</section>
+
+<section class="sc s5">
+<div class="bgl party"></div>
+<div class="stage">
+  <div class="scene">
+    <div class="heart"></div>
+    <div class="kitty">
+      <svg viewBox="0 0 200 170">
+        <g stroke="#333" stroke-width="3.5" stroke-linejoin="round">
+          <path d="M26 62 L22 8 Q22 2 28 5 L72 28 Z" fill="#fff"/>
+          <path d="M174 62 L178 8 Q178 2 172 5 L128 28 Z" fill="#fff"/>
+          <ellipse cx="100" cy="98" rx="88" ry="64" fill="#fff"/>
+        </g>
+        <path d="M34 52 L33 22 L55 36 Z" fill="#ffd9e8"/>
+        <ellipse cx="60" cy="70" rx="22" ry="9" fill="#fff" opacity=".9"/>
+        <g class="face">
+          <ellipse cx="38" cy="112" rx="13" ry="8" fill="#ff9fc4" opacity=".7"/>
+          <ellipse cx="162" cy="112" rx="13" ry="8" fill="#ff9fc4" opacity=".7"/>
+          <g stroke="#333" stroke-width="3" stroke-linecap="round">
+            <path d="M2 92 L30 98"/><path d="M0 108 L30 108"/><path d="M4 124 L30 118"/>
+            <path d="M198 92 L170 98"/><path d="M200 108 L170 108"/><path d="M196 124 L170 118"/>
+          </g>
+          <ellipse cx="100" cy="108" rx="11" ry="7.5" fill="#ffc928" stroke="#333" stroke-width="3"/>
+          <ellipse cx="97" cy="105.5" rx="3" ry="1.8" fill="#fff" opacity=".8"/>
+          <g class="eyes"></g>
+          <g class="mouth"></g>
+        </g>
+        <g class="bowg" stroke="#333" stroke-width="3.5" stroke-linejoin="round">
+          <path d="M150 42 Q128 14 120 30 Q114 58 150 46 Z" fill="#ff3d85"/>
+          <path d="M150 42 Q176 14 186 30 Q190 60 150 46 Z" fill="#ff3d85"/>
+          <path d="M128 28 Q132 36 128 46" fill="none" stroke="#ff9fc4" stroke-width="2.5"/>
+          <circle cx="150" cy="44" r="9" fill="#ff6aa5"/>
+        </g>
+      </svg>
+    </div>
+  </div>
+  <div class="note">Chúc nhì iu phụ nữ Việt Nam vui vẻ 💕</div>
+</div>
+</section>
+
+<script>
+const canvas = document.getElementById('fx');
+const ctx = canvas.getContext('2d');
+function resize(){ canvas.width = innerWidth; canvas.height = innerHeight; }
+resize(); addEventListener('resize', resize);
+
+const emojis = ['💖','💗','💕','🎀','🌸','⭐','✨','💝','🌷'];
+const colors = ['#ff2f87','#ff8fbf','#ffd700','#ffffff','#ff5cad','#c77dff','#7df9ff'];
+let parts = [];
+
+function heartPath(x, y, s){
+  ctx.beginPath();
+  ctx.moveTo(x, y + s/4);
+  ctx.bezierCurveTo(x, y - s/4, x - s, y - s/4, x - s, y + s/4);
+  ctx.bezierCurveTo(x - s, y + s*0.75, x, y + s*1.1, x, y + s*1.4);
+  ctx.bezierCurveTo(x, y + s*1.1, x + s, y + s*0.75, x + s, y + s/4);
+  ctx.bezierCurveTo(x + s, y - s/4, x, y - s/4, x, y + s/4);
+  ctx.closePath();
+}
+
+function burst(x, y, n = 40){
+  for (let i = 0; i < n; i++){
+    const a = Math.random() * Math.PI * 2;
+    const sp = 2 + Math.random() * 8;
+    parts.push({
+      x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 2,
+      g: 0.12, life: 1, decay: 0.008 + Math.random() * 0.01,
+      size: 6 + Math.random() * 12, rot: Math.random() * 6,
+      vr: (Math.random() - .5) * .3,
+      color: colors[(Math.random() * colors.length) | 0],
+      type: Math.random() < .7 ? 'heart' : 'dot'
+    });
+  }
+}
+
+function loop(){
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  parts = parts.filter(p => p.life > 0);
+  for (const p of parts){
+    p.vy += p.g; p.x += p.vx; p.y += p.vy; p.vx *= .99;
+    p.life -= p.decay; p.rot += p.vr;
+    ctx.save();
+    ctx.globalAlpha = Math.max(p.life, 0);
+    ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+    ctx.fillStyle = p.color;
+    if (p.type === 'heart'){ heartPath(0, -p.size/2, p.size/2); ctx.fill(); }
+    else { ctx.beginPath(); ctx.arc(0, 0, p.size/3, 0, 7); ctx.fill(); }
+    ctx.restore();
+  }
+  requestAnimationFrame(loop);
+}
+loop();
+
+// Biểu tượng bay lên liên tục
+function spawnFloat(){
+  const el = document.createElement('div');
+  el.className = 'float';
+  el.textContent = emojis[(Math.random() * emojis.length) | 0];
+  el.style.left = Math.random() * 100 + 'vw';
+  el.style.fontSize = 20 + Math.random() * 40 + 'px';
+  const d = 5 + Math.random() * 6;
+  el.style.animationDuration = d + 's';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), d * 1000);
+}
+setInterval(spawnFloat, 250);
+
+// Pháo tim tự động
+setInterval(() => { if (cur >= 2) burst(Math.random() * innerWidth, Math.random() * innerHeight * .6, 50); }, 1100);
+
+const heartAt = (x, y, s = 1) =>
+  `<path transform="translate(${x} ${y}) scale(${s})" d="M0 -3 C-2 -9 -12 -8 -10 0 C-9 6 -2 9 0 13 C2 9 9 6 10 0 C12 -8 2 -9 0 -3Z" fill="#ff2f6e"/>`;
+const starAt = (x, y) =>
+  `<path transform="translate(${x} ${y})" d="M0 -11 L3 -3 L11 -3 L5 2 L7 10 L0 5 L-7 10 L-5 2 L-11 -3 L-3 -3Z" fill="#ffc928" stroke="#333" stroke-width="1.5"/>`;
+const dot = x => `<ellipse cx="${x}" cy="98" rx="6" ry="8" fill="#222"/><circle cx="${x - 2}" cy="95" r="2.2" fill="#fff"/>`;
+const arc = x => `<path d="M${x - 8} 100 Q${x} 88 ${x + 8} 100" fill="none" stroke="#222" stroke-width="4" stroke-linecap="round"/>`;
+const smile = `<path d="M88 120 Q100 130 112 120" fill="none" stroke="#333" stroke-width="3" stroke-linecap="round"/>`;
+const expressions = [
+  { eyes: dot(62) + dot(138), mouth: smile },
+  { eyes: arc(62) + arc(138), mouth: `<path d="M86 120 Q100 142 114 120 Z" fill="#ff6b8f" stroke="#333" stroke-width="3" stroke-linejoin="round"/>` },
+  { eyes: dot(62) + `<path d="M130 98 L146 98 M130 92 L146 98 M130 104 L146 98" stroke="#222" stroke-width="3.5" stroke-linecap="round"/>`, mouth: smile + `<path d="M104 124 Q112 134 118 124" fill="#ff6b8f" stroke="#333" stroke-width="2"/>` },
+  { eyes: heartAt(62, 94, 1.3) + heartAt(138, 94, 1.3), mouth: `<path d="M88 120 Q100 134 112 120" fill="none" stroke="#333" stroke-width="3" stroke-linecap="round"/>` },
+  { eyes: starAt(62, 96) + starAt(138, 96), mouth: `<path d="M86 120 Q100 142 114 120 Z" fill="#ff6b8f" stroke="#333" stroke-width="3" stroke-linejoin="round"/>` },
+  { eyes: dot(62) + dot(138), mouth: `<ellipse cx="100" cy="128" rx="6" ry="8" fill="#ff6b8f" stroke="#333" stroke-width="3"/>` },
+  { eyes: arc(62) + arc(138), mouth: `<path d="M96 122 Q100 128 104 122" fill="none" stroke="#333" stroke-width="3" stroke-linecap="round"/>${heartAt(122, 126, .7)}` },
+  { eyes: `<path d="M52 98 Q62 106 72 98 M128 98 Q138 106 148 98" fill="none" stroke="#222" stroke-width="4" stroke-linecap="round"/>`, mouth: `<path d="M90 124 Q100 118 110 124" fill="none" stroke="#333" stroke-width="3" stroke-linecap="round"/><text x="150" y="70" font-size="16" fill="#7a5af8" font-weight="bold">z</text>` }
+];
+function setExp(k, i){
+  k.querySelector('.eyes').innerHTML = expressions[i].eyes;
+  k.querySelector('.mouth').innerHTML = expressions[i].mouth;
+  const f = k.querySelector('.face');
+  f.classList.remove('swap'); f.getBoundingClientRect(); f.classList.add('swap');
+}
+
+// Story
+const kittySvg = document.querySelector('.s5 .kitty svg').outerHTML;
+document.querySelectorAll('.kitty.mini').forEach(k => k.innerHTML = kittySvg);
+
+const night = document.querySelector('.night');
+for (let i = 0; i < 60; i++){
+  const s = document.createElement('span');
+  s.style.cssText = `left:${Math.random() * 100}%;top:${Math.random() * 100}%;animation-delay:${Math.random() * 3}s;--s:${1 + Math.random() * 3}px`;
+  night.appendChild(s);
+}
+
+const scenes = [...document.querySelectorAll('.sc')];
+const trs = ['fade', 'slide', 'circle', 'zoom', 'heart'];
+const durs = [5500, 6500, 7500, 9000, 0]; // 0 = giữ ở cảnh cuối
+const bars = document.querySelector('.bars');
+scenes.forEach(() => bars.insertAdjacentHTML('beforeend', '<span><i></i></span>'));
+let cur = -1, exp = 0, timers = [];
+const later = (fn, ms) => timers.push(setTimeout(fn, ms));
+
+function go(n){
+  timers.forEach(clearTimeout); timers = [];
+  n = (n + scenes.length) % scenes.length;
+  const old = scenes[cur], sc = scenes[n];
+  if (old && old !== sc){
+    old.classList.remove('active'); old.classList.add('leaving');
+    setTimeout(() => old.classList.remove('leaving'), 1000);
+  }
+  scenes.forEach(s => { if (s !== old && s !== sc) s.classList.remove('leaving', 'active'); });
+  sc.classList.remove('leaving');
+  trs.forEach(t => sc.classList.remove('tr-' + t));
+  sc.classList.add('active', 'tr-' + trs[n]);
+
+  [...bars.children].forEach((b, i) => { const f = b.firstChild; f.style.animation = 'none'; f.style.width = i < n ? '100%' : '0'; });
+  void bars.offsetWidth;
+  const fill = bars.children[n].firstChild;
+  if (durs[n]) fill.style.animation = `fill ${durs[n]}ms linear forwards`; else fill.style.width = '100%';
+
+  const k = sc.querySelector('.kitty');
+  if (k){ exp = +(k.dataset.exp || 0); setExp(k, exp); }
+
+  cur = n;
+  if (n === 2) later(() => { const r = sc.querySelector('.gift').getBoundingClientRect(); burst(r.left + r.width / 2, r.top, 100); }, 2600);
+  if (n === 4){
+    burst(innerWidth / 2, innerHeight / 2, 150);
+    later(() => burst(innerWidth * .25, innerHeight * .35, 80), 600);
+    later(() => burst(innerWidth * .75, innerHeight * .35, 80), 1000);
+  }
+  if (durs[n]) later(() => go(n + 1), durs[n]);
+}
+go(0);
+
+// Chạm mép phải/trái để chuyển cảnh, chạm giữa để đổi biểu cảm
+addEventListener('pointerdown', e => {
+  const x = e.clientX / innerWidth;
+  if (x > .8) return go(cur + 1);
+  if (x < .2) return go(cur - 1);
+  const k = scenes[cur].querySelector('.kitty');
+  if (k){ exp = (exp + 1) % expressions.length; setExp(k, exp); }
+  burst(e.clientX, e.clientY, 70);
+});
+addEventListener('pointermove', e => { if (Math.random() < .3) burst(e.clientX, e.clientY, 3); });
+</script>
+</body>
+</html>
